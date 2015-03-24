@@ -18,6 +18,13 @@ USER_NOT_FOUND_RESPONSE = Response(json.dumps({'error': 'User not found'}), stat
 
 app = Flask(__name__)
 
+from config import CONFIG_DICT
+app.config.update(CONFIG_DICT)
+setup_logging(app.config['LOGGING_CONFIG_FILE_PATH'])
+db = SQLAlchemy(app)
+global db_access
+db_access = DBAccess(db)
+
 LOGGER = logging.getLogger(__name__)
 
 @app.errorhandler(Exception)
@@ -110,12 +117,6 @@ def _authenticated_response_body(user):
     return json.dumps({"user": {"user_id": user.user_id}})
 
 def run_app():
-    from config import CONFIG_DICT
-    app.config.update(CONFIG_DICT)
-    setup_logging(app.config['LOGGING_CONFIG_FILE_PATH'])
-    db = SQLAlchemy(app)
-    global db_access
-    db_access = DBAccess(db)
     port = int(app.config.get('PORT', 8005))
     app.run(host='0.0.0.0', port=port, debug=True)
 
