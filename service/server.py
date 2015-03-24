@@ -25,6 +25,10 @@ def handleServerError(error):
     LOGGER.error('An error occurred when processing a request', exc_info = error)
     return Response(INTERNAL_SERVER_ERROR_RESPONSE_BODY, status=500, mimetype=JSON_CONTENT_TYPE)
 
+@app.route('/', methods=['GET'])
+def healthcheck():
+    return "OK"
+
 @app.route('/user/authenticate', methods=['POST'])
 def authenticate_user():
     request_json = _try_get_request_json(request)
@@ -35,16 +39,16 @@ def authenticate_user():
         password = credentials['password']
         password_hash = security.get_user_password_hash(user_id, password, app.config['PASSWORD_SALT'])
         user = db_access.get_user(user_id, password_hash)
-        
+
         if user:
             return Response(_authenticated_response_body(user), mimetype=JSON_CONTENT_TYPE)
         else:
             return Response(AUTH_FAILURE_RESPONSE_BODY, status=401, mimetype=JSON_CONTENT_TYPE)
     else:
         return INVALID_REQUEST_RESPONSE
-    
+
 @app.route('/admin/user', methods=['POST'])
-def create_user():    
+def create_user():
     request_json = _try_get_request_json(request)
     if request_json and _is_create_request_data_valid(request_json):
         user = request_json['user']
@@ -73,7 +77,7 @@ def update_user(user_id):
             return USER_NOT_FOUND_RESPONSE
     else:
         return INVALID_REQUEST_RESPONSE
-        
+
 
 @app.route('/admin/user/<user_id>', methods=['DELETE'])
 def delete_user(user_id):
@@ -89,7 +93,7 @@ def _try_get_request_json(request):
     except Exception as e:
         LOGGER.error('Failed to parse JSON body from request', exc_info = e)
         return None
-    
+
 def _is_auth_request_data_valid(request_data):
     credentials = request_data.get('credentials')
     return credentials and credentials.get('user_id') and credentials.get('password')
@@ -115,5 +119,5 @@ def run_app():
     port = int(app.config.get('PORT', 8005))
     app.run(host='0.0.0.0', port=port, debug=True)
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     run_app()
