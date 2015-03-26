@@ -40,37 +40,40 @@ class TestServer:
         self.app = app.test_client()
 
     def test_authenticate_user_returns_400_response_when_empty_body(self):
-        response = self.app.post(AUTHENTICATE_ROUTE, headers=JSON_CONTENT_TYPE_HEADER)
-        assert response.status_code == 400
-        assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
-
-    def test_authenticate_user_returns_400_response_when_body_is_not_json(self):
         response = self.app.post(
-            AUTHENTICATE_ROUTE, 
-            data='Not a JSON body', 
+            AUTHENTICATE_ROUTE,
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
-    def test_authenticate_user_returns_400_response_when_credentials_missing(self):
+    def test_authenticate_user_returns_400_when_body_is_not_json(self):
         response = self.app.post(
-            AUTHENTICATE_ROUTE, 
+            AUTHENTICATE_ROUTE,
+            data='Not a JSON body',
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
+
+        assert response.status_code == 400
+        assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
+
+    def test_authenticate_user_returns_400_when_credentials_missing(self):
+        response = self.app.post(
+            AUTHENTICATE_ROUTE,
             data='{"valid": "json", "but": "no credentials"}',
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
+
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
     def test_authenticate_user_returns_400_response_when_user_id_missing(self):
         response = self.app.post(
-            AUTHENTICATE_ROUTE, 
+            AUTHENTICATE_ROUTE,
             data='{"credentials": {"password":"somepassword"}}',
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
+
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
@@ -80,51 +83,67 @@ class TestServer:
             data='{"credentials": {"user_id": "", "password":"somepassword"}}',
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
+
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
-    def test_authenticate_user_returns_400_response_when_password_missing(self):
+    def test_authenticate_user_returns_400_when_password_missing(self):
         response = self.app.post(
-            AUTHENTICATE_ROUTE, 
+            AUTHENTICATE_ROUTE,
             data='{"credentials": {"user_id": "userid"}}',
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
+
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
     def test_authenticate_user_returns_400_response_when_password_empty(self):
         response = self.app.post(
-            AUTHENTICATE_ROUTE, 
+            AUTHENTICATE_ROUTE,
             data='{"credentials": {"user_id": "userid", "password": ""}}',
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
-        assert response.status_code == 400
-        assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
-
-    def test_authenticate_user_returns_400_response_when_json_content_type_header_not_set(self):
-        wrong_content_type_header = {"Content-type": "application/x-www-form-urlencoded"}
-        valid_body = '{"credentials": {"user_id": "userid", "password": "somepassword"}}'
-        response = self.app.post(AUTHENTICATE_ROUTE, data=valid_body, headers=wrong_content_type_header)
 
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
-    def test_authenticate_user_returns_401_response_when_credentials_not_found_in_db(self):
-        body = '{"credentials": {"user_id": "userid", "password": "somepassword"}}'
+    def test_authenticate_user_returns_400_when_contentheader_not_set(self):
+        wrong_content_type_header = {
+            "Content-type": "application/x-www-form-urlencoded"
+        }
+        valid_body = '''{
+            "credentials": {"user_id": "userid", "password": "somepassword"}
+        }'''
+        response = self.app.post(
+            AUTHENTICATE_ROUTE,
+            data=valid_body,
+            headers=wrong_content_type_header
+        )
+
+        assert response.status_code == 400
+        assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
+
+    def test_authenticate_user_returns_401_when_credentials_not_in_db(self):
+        body = '''{
+            "credentials": {"user_id": "userid", "password": "somepassword"}
+        }'''
 
         mock_db_access = MagicMock()
         mock_db_access.get_user = lambda s, *a, **ka: None
         server.db_access = mock_db_access
 
-        response = self.app.post(AUTHENTICATE_ROUTE, data=body, headers=JSON_CONTENT_TYPE_HEADER)
+        response = self.app.post(
+            AUTHENTICATE_ROUTE,
+            data=body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
         assert response.status_code == 401
         assert response.data.decode() == INVALID_CREDENTIALS_RESPONSE_BODY
 
     def test_authenticate_user_returns_500_response_when_error_occurs(self):
-        valid_body = '{"credentials": {"user_id": "userid1", "password": "somepassword"}}'
+        valid_body = '''{
+            "credentials": {"user_id": "userid1", "password": "somepassword"}
+        }'''
 
         def failing_get_user(s, *args, **kwargs):
             raise Exception('Intentional test exception')
@@ -133,32 +152,60 @@ class TestServer:
         mock_db_access.get_user = failing_get_user
         server.db_access = mock_db_access
 
-        response = self.app.post(AUTHENTICATE_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        response = self.app.post(
+            AUTHENTICATE_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
         assert response.status_code == 500
         assert response.data.decode() == INTERNAL_SERVER_ERROR_RESPONSE_BODY
 
     def test_authenticate_user_calls_db_access_to_find_user(self):
         user_id = 'userid1'
         password = 'somepassword'
-        valid_body = '{"credentials": {"user_id": "%s", "password": "%s"}}' % (user_id, password)
+        body_format = '{"credentials": {"user_id": "%s", "password": "%s"}}'
+        valid_body = body_format % (user_id, password)
 
         mock_db_access = MagicMock()
-        mock_db_access.get_user.return_value = FakeUser(user_id, 'passwordhash')
+        mock_db_access.get_user.return_value = FakeUser(
+            user_id,
+            'passwordhash'
+        )
         server.db_access = mock_db_access
 
-        self.app.post(AUTHENTICATE_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        self.app.post(
+            AUTHENTICATE_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
 
-        expected_password_hash_to_pass = get_user_password_hash(user_id, password, app.config['PASSWORD_SALT'])
-        mock_db_access.get_user.assert_called_once_with(user_id, expected_password_hash_to_pass)
+        expected_password_hash_to_pass = get_user_password_hash(
+            user_id,
+            password,
+            app.config['PASSWORD_SALT']
+        )
+        mock_db_access.get_user.assert_called_once_with(
+            user_id,
+            expected_password_hash_to_pass
+        )
 
-    def test_authenticate_user_returns_200_response_when_credentials_are_valid(self):
-        valid_body = '{"credentials": {"user_id": "userid1", "password": "somepassword"}}'
+    def test_authenticate_user_returns_200_when_credentials_are_valid(self):
+        valid_body = '''{
+            "credentials": {"user_id": "userid1", "password": "somepassword"}
+        }'''
 
         mock_db_access = MagicMock()
-        mock_db_access.get_user.return_value = FakeUser('userid1', 'passwordhash')
+        mock_db_access.get_user.return_value = FakeUser(
+            'userid1',
+            'passwordhash'
+        )
         server.db_access = mock_db_access
 
-        response = self.app.post(AUTHENTICATE_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        response = self.app.post(
+            AUTHENTICATE_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
         assert response.status_code == 200
         assert response.data.decode() == '{"user": {"user_id": "userid1"}}'
 
@@ -227,10 +274,18 @@ class TestServer:
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
-    def test_create_user_returns_400_response_when_json_content_type_header_not_set(self):
-        wrong_content_type_header = {"Content-type": "application/x-www-form-urlencoded"}
-        valid_body = '{"user": {"user_id": "userid", "password": "somepassword"}}'
-        response = self.app.post(CREATE_USER_ROUTE, data=valid_body, headers=wrong_content_type_header)
+    def test_create_user_returns_400_when_json_content_header_not_set(self):
+        wrong_content_type_header = {
+            "Content-type": "application/x-www-form-urlencoded"
+        }
+        valid_body = '''{
+            "user": {"user_id": "userid", "password": "somepassword"}
+        }'''
+        response = self.app.post(
+            CREATE_USER_ROUTE,
+            data=valid_body,
+            headers=wrong_content_type_header
+        )
 
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
@@ -238,43 +293,70 @@ class TestServer:
     def test_create_user_calls_db_access_to_create_user(self):
         user_id = 'userid1'
         password = 'somepassword'
-        valid_body = '{"user": {"user_id": "%s", "password": "%s"}}' % (user_id, password)
+        valid_body_format = '{"user": {"user_id": "%s", "password": "%s"}}'
+        valid_body = valid_body_format % (user_id, password)
 
         mock_db_access = MagicMock()
         mock_db_access.create_user.return_value = True
         server.db_access = mock_db_access
 
-        self.app.post(CREATE_USER_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        self.app.post(
+            CREATE_USER_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
 
-        expected_password_hash_to_pass = get_user_password_hash(user_id, password, app.config['PASSWORD_SALT'])
-        mock_db_access.create_user.assert_called_once_with(user_id, expected_password_hash_to_pass)
+        expected_password_hash_to_pass = get_user_password_hash(
+            user_id,
+            password,
+            app.config['PASSWORD_SALT']
+        )
+        mock_db_access.create_user.assert_called_once_with(
+            user_id,
+            expected_password_hash_to_pass
+        )
 
     def test_create_user_returns_409_response_when_user_already_exists(self):
-        valid_body = '{"user": {"user_id": "userid1", "password": "somepassword"}}'
+        valid_body = '''{"user": {
+            "user_id": "userid1", "password": "somepassword"
+        }}'''
 
         mock_db_access = MagicMock()
         mock_db_access.create_user.return_value = False
         server.db_access = mock_db_access
 
-        response = self.app.post(CREATE_USER_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        response = self.app.post(
+            CREATE_USER_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
 
         assert response.status_code == 409
         assert response.data.decode() == USER_ALREADY_EXISTS_RESPONSE_BODY
-    
-    def test_create_user_returns_200_response_when_user_creation_successful(self):
-        valid_body = '{"user": {"user_id": "userid1", "password": "somepassword"}}'
+
+    def test_create_user_returns_200_when_user_creation_successful(self):
+        valid_body = '''{"user": {
+            "user_id": "userid1", "password": "somepassword"
+        }}'''
 
         mock_db_access = MagicMock()
         mock_db_access.create_user.return_value = True
         server.db_access = mock_db_access
 
-        response = self.app.post(CREATE_USER_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        response = self.app.post(
+            CREATE_USER_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
 
         assert response.status_code == 200
         assert response.data.decode() == CREATED_USER_RESPONSE_BODY
 
     def test_create_user_returns_500_response_when_an_error_occurs(self):
-        valid_body = '{"user": {"user_id": "userid1", "password": "somepassword"}}'
+        valid_body = '''{"user": {
+            "user_id": "userid1",
+            "password": "somepassword"
+        }}'''
 
         def failing_create_user(s, *args, **kwargs):
             raise Exception('Intentional test exception')
@@ -283,7 +365,11 @@ class TestServer:
         mock_db_access.create_user = failing_create_user
         server.db_access = mock_db_access
 
-        response = self.app.post(CREATE_USER_ROUTE, data=valid_body, headers=JSON_CONTENT_TYPE_HEADER)
+        response = self.app.post(
+            CREATE_USER_ROUTE,
+            data=valid_body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
 
         assert response.status_code == 500
         assert response.data.decode() == INTERNAL_SERVER_ERROR_RESPONSE_BODY
@@ -293,7 +379,7 @@ class TestServer:
             UPDATE_USER_ROUTE_FORMAT.format("userid"),
             headers=JSON_CONTENT_TYPE_HEADER
         )
-        
+
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
@@ -337,13 +423,15 @@ class TestServer:
         assert response.status_code == 400
         assert response.data.decode() == INVALID_REQUEST_RESPONSE_BODY
 
-    def test_update_user_returns_400_response_when_json_content_type_header_not_set(self):
-        wrong_content_type_header = {"Content-type": "application/x-www-form-urlencoded"}
+    def test_update_user_returns_400_when_json_content_header_not_set(self):
+        wrong_content_type_header = {
+            "Content-type": "application/x-www-form-urlencoded"
+        }
         valid_body = '{"user": {"password": "somepassword"}}'
-        
+
         response = self.app.post(
-            UPDATE_USER_ROUTE_FORMAT.format("userid"), 
-            data=valid_body, 
+            UPDATE_USER_ROUTE_FORMAT.format("userid"),
+            data=valid_body,
             headers=wrong_content_type_header
         )
 
@@ -360,14 +448,18 @@ class TestServer:
         server.db_access = mock_db_access
 
         self.app.post(
-            UPDATE_USER_ROUTE_FORMAT.format(user_id), 
-            data=valid_body, 
+            UPDATE_USER_ROUTE_FORMAT.format(user_id),
+            data=valid_body,
             headers=JSON_CONTENT_TYPE_HEADER
         )
 
-        expected_password_hash_to_pass = get_user_password_hash(user_id, password, app.config['PASSWORD_SALT'])
+        expected_password_hash_to_pass = get_user_password_hash(
+            user_id,
+            password,
+            app.config['PASSWORD_SALT']
+        )
         mock_db_access.update_user.assert_called_once_with(
-            user_id=user_id, 
+            user_id=user_id,
             password_hash=expected_password_hash_to_pass
         )
 
@@ -387,7 +479,7 @@ class TestServer:
         assert response.status_code == 404
         assert response.data.decode() == USER_NOT_FOUND_RESPONSE_BODY
 
-    def test_update_user_returns_200_response_when_user_update_successful(self):
+    def test_update_user_returns_200_when_user_update_successful(self):
         valid_body = '{"user": {"password": "somepassword"}}'
 
         mock_db_access = MagicMock()
@@ -414,8 +506,8 @@ class TestServer:
         server.db_access = mock_db_access
 
         response = self.app.post(
-            UPDATE_USER_ROUTE_FORMAT.format("userid1"), 
-            data=valid_body, 
+            UPDATE_USER_ROUTE_FORMAT.format("userid1"),
+            data=valid_body,
             headers=JSON_CONTENT_TYPE_HEADER
         )
 
@@ -445,7 +537,7 @@ class TestServer:
         assert response.status_code == 404
         assert response.data.decode() == USER_NOT_FOUND_RESPONSE_BODY
 
-    def test_delete_user_returns_200_response_when_user_deletion_successful(self):
+    def test_delete_user_returns_200_when_user_deletion_successful(self):
         user_id = 'userid1'
 
         mock_db_access = MagicMock()
