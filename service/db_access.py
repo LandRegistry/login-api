@@ -32,8 +32,8 @@ class DBAccess():
             if e.args and e.args[0].find(SQL_STATE_DUPLICATE_KEY) >= 0:
                 return False
             else:
-                raise Exception('''An error occurred when trying
-                to insert user into DB''', e)
+                raise Exception('An error occurred when trying '
+                                'to insert user into DB', e)
 
     def update_user(self, user_id, password_hash):
         result = self.User.query.filter(self.User.user_id == user_id).update(
