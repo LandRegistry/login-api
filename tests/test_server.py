@@ -10,6 +10,8 @@ AUTHENTICATE_ROUTE = '/user/authenticate'
 CREATE_USER_ROUTE = '/admin/user'
 UPDATE_USER_ROUTE_FORMAT = '/admin/user/{}/update'
 DELETE_USER_ROUTE_FORMAT = '/admin/user/{}'
+UNLOCK_ACCOUNT_ROUTE_FORMAT = 'admin/user/{}/unlock-account'
+GET_FAILED_LOGINS_ROUTE_FORMAT = 'admin/user/{}/get-failed-logins'
 
 JSON_CONTENT_TYPE_HEADER = {"Content-type": "application/json"}
 
@@ -21,8 +23,10 @@ INVALID_CREDENTIALS_RESPONSE_BODY = '{"error": "Invalid credentials"}'
 USER_ALREADY_EXISTS_RESPONSE_BODY = '{"error": "User already exists"}'
 CREATED_USER_RESPONSE_BODY = '{"created": true}'
 USER_NOT_FOUND_RESPONSE_BODY = '{"error": "User not found"}'
+GET_FAILED_LOGINS_RESPONSE_BODY = '{"Failed login attempts": 2}'
+UNLOCK_ACCOUNT_RESPONSE_BODY = '{"Reset": true}'
 
-FakeUser = namedtuple('User', ['user_id', 'password_hash'])
+FakeUser = namedtuple('User', ['user_id', 'password_hash', 'failed_logins'])
 
 
 class TestServer:
@@ -129,7 +133,28 @@ class TestServer:
         }'''
 
         mock_db_access = MagicMock()
-        mock_db_access.get_user = lambda s, *a, **ka: None
+        mock_db_access.get_user = lambda self, *args, **kwargs: None
+        mock_db_access.get_failed_logins = lambda self, *args, **kwargs: None
+        mock_db_access.update_failed_logins = lambda self, *args, **kwargs: 1
+        server.db_access = mock_db_access
+
+        response = self.app.post(
+            AUTHENTICATE_ROUTE,
+            data=body,
+            headers=JSON_CONTENT_TYPE_HEADER
+        )
+        assert response.status_code == 401
+        assert response.data.decode() == INVALID_CREDENTIALS_RESPONSE_BODY
+
+    def test_authenticate_user_returns_401_if_failed_login_exceeds_limit(self):
+        body = '''{
+            "credentials": {"user_id": "userid", "password": "somepassword"}
+        }'''
+
+        mock_db_access = MagicMock()
+        mock_db_access.get_user = FakeUser('user_id', 'passwordhash', 20)
+        mock_db_access.get_failed_logins = lambda self, *args, **kwargs: 20
+        mock_db_access.update_failed_logins = lambda self, *args, **kwargs: 1
         server.db_access = mock_db_access
 
         response = self.app.post(
@@ -169,8 +194,11 @@ class TestServer:
         mock_db_access = MagicMock()
         mock_db_access.get_user.return_value = FakeUser(
             user_id,
-            'passwordhash'
+            'passwordhash',
+            0
         )
+        mock_db_access.get_failed_logins = lambda self, *args, **kwargs: 0
+        mock_db_access.update_failed_logins = lambda self, *args, **kwargs: 1
         server.db_access = mock_db_access
 
         self.app.post(
@@ -197,8 +225,11 @@ class TestServer:
         mock_db_access = MagicMock()
         mock_db_access.get_user.return_value = FakeUser(
             'userid1',
-            'passwordhash'
+            'passwordhash',
+            0
         )
+        mock_db_access.get_failed_logins = lambda self, *args, **kwargs: 0
+        mock_db_access.update_failed_logins = lambda self, *args, **kwargs: 1
         server.db_access = mock_db_access
 
         response = self.app.post(
@@ -563,3 +594,73 @@ class TestServer:
 
         assert response.status_code == 500
         assert response.data.decode() == INTERNAL_SERVER_ERROR_RESPONSE_BODY
+
+    def test_get_failed_logins_calls_db_access_to_get_failed_login_count(self):
+        user_id = 'userid1'
+
+        mock_db_access = MagicMock()
+        mock_db_access.get_failed_logins.return_value = 2
+        server.db_access = mock_db_access
+
+        self.app.get(GET_FAILED_LOGINS_ROUTE_FORMAT.format(user_id))
+
+        mock_db_access.get_failed_logins.assert_called_once_with(user_id)
+
+    def test_get_failed_logins_returns_404_response_when_user_not_found(self):
+        user_id = 'userid1'
+
+        mock_db_access = MagicMock()
+        mock_db_access.get_failed_logins.return_value = None
+        server.db_access = mock_db_access
+
+        response = self.app.get(GET_FAILED_LOGINS_ROUTE_FORMAT.format(user_id))
+
+        assert response.status_code == 404
+        assert response.data.decode() == USER_NOT_FOUND_RESPONSE_BODY
+
+    def test_get_failed_logins_returns_200_when_failed_logins_retrieved(self):
+        user_id = 'userid1'
+
+        mock_db_access = MagicMock()
+        mock_db_access.get_failed_logins.return_value = 2
+        server.db_access = mock_db_access
+
+        response = self.app.get(GET_FAILED_LOGINS_ROUTE_FORMAT.format(user_id))
+
+        assert response.status_code == 200
+        assert response.data.decode() == GET_FAILED_LOGINS_RESPONSE_BODY
+
+    def test_unlock_account_calls_db_access_to_reset_failed_logins(self):
+        user_id = 'userid1'
+
+        mock_db_access = MagicMock()
+        mock_db_access.update_failed_logins.return_value = 1
+        server.db_access = mock_db_access
+
+        self.app.get(UNLOCK_ACCOUNT_ROUTE_FORMAT.format(user_id))
+
+        mock_db_access.update_failed_logins.assert_called_once_with(user_id, 0)
+
+    def test_unlock_account_returns_404_response_when_user_not_found(self):
+        user_id = 'userid1'
+
+        mock_db_access = MagicMock()
+        mock_db_access.update_failed_logins.return_value = 0
+        server.db_access = mock_db_access
+
+        response = self.app.get(UNLOCK_ACCOUNT_ROUTE_FORMAT.format(user_id))
+
+        assert response.status_code == 404
+        assert response.data.decode() == USER_NOT_FOUND_RESPONSE_BODY
+
+    def test_unlock_account_returns_200_when_failed_logins_reset(self):
+        user_id = 'userid1'
+
+        mock_db_access = MagicMock()
+        mock_db_access.update_failed_logins.return_value = 1
+        server.db_access = mock_db_access
+
+        response = self.app.get(UNLOCK_ACCOUNT_ROUTE_FORMAT.format(user_id))
+
+        assert response.status_code == 200
+        assert response.data.decode() == UNLOCK_ACCOUNT_RESPONSE_BODY

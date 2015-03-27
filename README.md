@@ -17,19 +17,19 @@ To create a virtual env, run the following from a shell:
 
 ## Run the tests
 
-To run the tests for the Login API, go to its folder and run `lr-run-tests`. 
+To run the tests for the Login API, go to its folder and run `lr-run-tests`.
 
 ## Run the API
 
 Before you run the API, you need to have a PostgreSQL database running  on your development VM (see `db/lr-start-db`
-script in the [centos-dev-env](https://github.com/LandRegistry/centos-dev-env) project). 
+script in the [centos-dev-env](https://github.com/LandRegistry/centos-dev-env) project).
 
 Once you've got it running, execute the following command:
 
     ./run_flask_dev.py
- 
-Make sure you've got permissions to execute that script.   
- 
+
+Make sure you've got permissions to execute that script.
+
 ## Using the endpoints
 
 Below are examples of how to Login API endpoints.
@@ -38,7 +38,7 @@ Below are examples of how to Login API endpoints.
 ### Authenticating user:
 
     curl -XPOST http://localhost:8005/user/authenticate -d '{"credentials": {"user_id":"userid123", "password":"password123"}}' -H 'content-type: application/json'
-    
+
 Successful response (HTTP status: 200):
 
     {"user": {"user_id": "userid123"}}
@@ -54,7 +54,7 @@ Unauthorized response (HTTP status: 401)
 Successful response (HTTP status: 200):
 
     {"created": true}
-    
+
 User already exists response (HTTP status: 409):
 
     {"error": "User already exists"}
@@ -66,10 +66,10 @@ User already exists response (HTTP status: 409):
 Successful response (HTTP status: 200):
 
     {"updated": true}
-    
+
 User not found response (HTTP status: 404):
 
-    {"error": "User not found"}    
+    {"error": "User not found"}
 
 ### Deleting user:
 
@@ -78,11 +78,35 @@ User not found response (HTTP status: 404):
 Successful response (HTTP status: 200):
 
     {"deleted": true}
-    
+
 User not found response (HTTP status: 404):
 
     {"error": "User not found"}
- 
-## Jenkins builds 
+
+### Find failed logins for a user:
+
+    curl -XGET http://localhost:8005/admin/user/userid123/get-failed-logins
+
+Successful response (HTTP status: 200):
+
+    {"Failed login attempts": 0}
+
+User not found response (HTTP status: 404):
+
+    {"error": "User not found"}
+
+### Unlock user account:
+
+    curl -XGET http://localhost:8005/admin/user/userid123/unlock-account
+
+Successful response (HTTP status: 200):
+
+    {"Reset": true}
+
+User not found response (HTTP status: 404):
+
+    {"error": "User not found"}
+
+## Jenkins builds
 
 TODO
