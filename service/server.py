@@ -77,7 +77,7 @@ def authenticate_user():
         # If they have less attempts than the limit try to authorise
         skip_authorise = (
             failed_login_attempts is None or
-            failed_login_attempts > MAX_LOGIN_ATTEMPTS
+            failed_login_attempts >= MAX_LOGIN_ATTEMPTS
         )
         if not skip_authorise:
             user = db_access.get_user(user_id, password_hash)
