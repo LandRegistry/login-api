@@ -117,3 +117,27 @@ User not found response (HTTP status: 404):
 ## Jenkins builds
 
 TODO
+
+## Database migrations
+
+We use Flask-Migrate (a project which integrates Flask with Alembic, a migration
+tool from the author of SQLAlchemy) to handle database migrations. Every time a
+model is added or modified, a migration script should be created and committed
+to our version control system.
+
+From inside a virtual environment, and after sourcing environment.sh, run the
+following to add a new migration script:
+
+    python3 manage.py db migrate
+
+Should you ever need to write a migration scripts from scratch you should use
+the revision command instead of migrate:
+
+    python3 manage.py db revision
+
+Read Alembic's documentation to learn more.
+
+Once you have a migration script, the next step is to apply it to the database.
+To do this run the upgrade command:
+
+    python3 manage.py db upgrade
