@@ -12,6 +12,7 @@ class DBAccess():
 
             user_id = db.Column(db.String(100), primary_key=True)
             password_hash = db.Column(db.String(64))
+            failed_logins = db.Column(db.Integer)
 
         self.User = User
 
@@ -23,7 +24,11 @@ class DBAccess():
 
     def create_user(self, user_id, password_hash):
         try:
-            user = self.User(user_id=user_id, password_hash=password_hash)
+            user = self.User(
+                user_id=user_id,
+                password_hash=password_hash,
+                failed_logins=0
+            )
             self.db.session.add(user)
             self.db.session.commit()
             return True
@@ -44,5 +49,19 @@ class DBAccess():
 
     def delete_user(self, user_id):
         result = self.User.query.filter(self.User.user_id == user_id).delete()
+        self.db.session.commit()
+        return result
+
+    def get_failed_logins(self, user_id):
+        result = self.User.query.filter(self.User.user_id == user_id).first()
+        if result:
+            return result.failed_logins
+        else:
+            return None
+
+    def update_failed_logins(self, user_id, failed_logins):
+        result = self.User.query.filter(self.User.user_id == user_id).update(
+            values={'failed_logins': failed_logins}
+        )
         self.db.session.commit()
         return result
