@@ -23,8 +23,8 @@ INVALID_CREDENTIALS_RESPONSE_BODY = '{"error": "Invalid credentials"}'
 USER_ALREADY_EXISTS_RESPONSE_BODY = '{"error": "User already exists"}'
 CREATED_USER_RESPONSE_BODY = '{"created": true}'
 USER_NOT_FOUND_RESPONSE_BODY = '{"error": "User not found"}'
-GET_FAILED_LOGINS_RESPONSE_BODY = '{"Failed login attempts": 2}'
-UNLOCK_ACCOUNT_RESPONSE_BODY = '{"Reset": true}'
+GET_FAILED_LOGINS_RESPONSE_BODY_FORMAT = '{{"failed_login_attempts": {}}}'
+UNLOCK_ACCOUNT_RESPONSE_BODY = '{"reset": true}'
 
 FakeUser = namedtuple('User', ['user_id', 'password_hash', 'failed_logins'])
 
@@ -621,14 +621,20 @@ class TestServer:
     def test_get_failed_logins_returns_200_when_failed_logins_retrieved(self):
         user_id = 'userid1'
 
+        failed_logins = 2
+
         mock_db_access = MagicMock()
-        mock_db_access.get_failed_logins.return_value = 2
+        mock_db_access.get_failed_logins.return_value = failed_logins
         server.db_access = mock_db_access
 
         response = self.app.get(GET_FAILED_LOGINS_ROUTE_FORMAT.format(user_id))
 
         assert response.status_code == 200
-        assert response.data.decode() == GET_FAILED_LOGINS_RESPONSE_BODY
+        expected = GET_FAILED_LOGINS_RESPONSE_BODY_FORMAT.format(
+            failed_logins
+        )
+
+        assert response.data.decode() == expected
 
     def test_unlock_account_calls_db_access_to_reset_failed_logins(self):
         user_id = 'userid1'

@@ -180,7 +180,7 @@ def delete_user(user_id):
 def unlock_account(user_id):
     if db_access.update_failed_logins(user_id, 0):
         LOGGER.info('Reset failed login attempts for user {}'.format(user_id))
-        return Response(json.dumps({'Reset': True}),
+        return Response(json.dumps({'reset': True}),
                         mimetype=JSON_CONTENT_TYPE)
     else:
         return USER_NOT_FOUND_RESPONSE
@@ -191,7 +191,7 @@ def get_failed_logins(user_id):
     failed_logins = db_access.get_failed_logins(user_id)
     if failed_logins is not None:
         LOGGER.info('Get failed login attempts for user {}'.format(user_id))
-        resp_json = json.dumps({'Failed login attempts': failed_logins})
+        resp_json = json.dumps({'failed_login_attempts': failed_logins})
         return Response(resp_json, mimetype=JSON_CONTENT_TYPE)
     else:
         return USER_NOT_FOUND_RESPONSE

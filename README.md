@@ -89,7 +89,7 @@ User not found response (HTTP status: 404):
 
 Successful response (HTTP status: 200):
 
-    {"Failed login attempts": 0}
+    {"failed_login_attempts": 0}
 
 User not found response (HTTP status: 404):
 
@@ -101,7 +101,7 @@ User not found response (HTTP status: 404):
 
 Successful response (HTTP status: 200):
 
-    {"Reset": true}
+    {"reset": true}
 
 User not found response (HTTP status: 404):
 
