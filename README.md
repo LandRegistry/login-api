@@ -128,12 +128,12 @@ to our version control system.
 From inside a virtual environment, and after sourcing environment.sh, run the
 following to add a new migration script:
 
-    python3 manage.py db migrate
+    python3 manage.py db migrate -m "add foobar field"
 
 Should you ever need to write a migration scripts from scratch you should use
 the revision command instead of migrate:
 
-    python3 manage.py db revision
+    python3 manage.py db revision -m "did something complicated"
 
 Read Alembic's documentation to learn more.
 
