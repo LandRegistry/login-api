@@ -5,6 +5,9 @@ from flask_migrate import Migrate, MigrateCommand
 
 from service import app, db
 
+# db.create_all() needs all models to be imported
+from service.db_access import *
+
 
 migrate = Migrate(app, db)
 
