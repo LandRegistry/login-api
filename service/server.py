@@ -3,11 +3,9 @@ import os
 import json
 import logging
 import logging.config
-from flask import request, Response, Flask
-from flask_sqlalchemy import SQLAlchemy
-from service import security, setup_logging
-from service.db_access import DBAccess
-from config import CONFIG_DICT
+from flask import request, Response
+from service import app, db_access, security
+
 
 AUTH_FAILURE_RESPONSE_BODY = json.dumps({'error': 'Invalid credentials'})
 INVALID_REQUEST_RESPONSE_BODY = json.dumps({'error': 'Invalid request'})
@@ -27,12 +25,6 @@ USER_NOT_FOUND_RESPONSE = Response(
     mimetype=JSON_CONTENT_TYPE
 )
 
-app = Flask(__name__)
-app.config.update(CONFIG_DICT)
-setup_logging(app.config['LOGGING_CONFIG_FILE_PATH'])
-db = SQLAlchemy(app)
-global db_access
-db_access = DBAccess(db)
 
 MAX_LOGIN_ATTEMPTS = 10
 
