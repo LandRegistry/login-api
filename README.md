@@ -11,7 +11,6 @@ TODO
 To create a virtual env, run the following from a shell:
 
     mkvirtualenv -p /usr/bin/python3 login-api
-    source environment.sh
     pip install -r requirements.txt
 
 This will also activate the virtual environment for you. You can use
@@ -33,14 +32,12 @@ script in the [centos-dev-env](https://github.com/LandRegistry/centos-dev-env) p
 
 Once you've got it running, execute the following command:
 
-    ./run_flask_dev.py
-
-Make sure you've got permissions to execute that script.
+    source environment.sh
+    python3 run_flask_dev.py
 
 ## Using the endpoints
 
 Below are examples of how to Login API endpoints.
-
 
 ### Authenticating user:
 
@@ -130,10 +127,10 @@ following to add a new migration script:
 
     python3 manage.py db migrate -m "add foobar field"
 
-Should you ever need to write a migration scripts from scratch you should use
-the revision command instead of migrate:
+Should you ever need to write a migration script from scratch (to migrate data
+for instance) you should use the revision command instead of migrate:
 
-    python3 manage.py db revision -m "did something complicated"
+    python3 manage.py db revision -m "do something complicated"
 
 Read Alembic's documentation to learn more.
 
