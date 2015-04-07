@@ -10,10 +10,17 @@ TODO
 
 To create a virtual env, run the following from a shell:
 
-
     mkvirtualenv -p /usr/bin/python3 login-api
     source environment.sh
     pip install -r requirements.txt
+
+This will also activate the virtual environment for you. You can use
+`deactivate` to deactivate it.
+
+Should you need to activate it again (for instance if you are running the app
+manually), type:
+
+    workon login-api
 
 ## Run the tests
 
