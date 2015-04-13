@@ -1,141 +1,195 @@
 from collections import namedtuple
-from mock import MagicMock
-from service.db_access import DBAccess
+import mock
+from service.db_access import (create_user, delete_user, get_failed_logins, get_user,
+                               update_failed_logins, update_user)
 
 
-class TestDBAccess:
-    FakeUser = namedtuple("User", ['user_id', 'password_hash'])
+FakeUser = namedtuple('User', ['user_id', 'password_hash', 'failed_logins'])
 
-    def setup_method(self, method):
-        pass
 
-    def test_get_user_uses_sqlalchemy_to_retrieve_user_from_db(self):
-        db_access = DBAccess(MagicMock())
+@mock.patch('service.db_access.User')
+def test_get_user_uses_sqlalchemy_to_retrieve_user_from_db(mock_user_class):
+    user_id = 'userid123'
+    password_hash = 'passwordhash123'
+    failed_logins = 0
 
-        user_id = 'userid123'
-        password_hash = 'passwordhash123'
+    first_return_val = mock_user_class.query.filter.return_value.first
+    first_return_val.return_value = FakeUser(user_id, password_hash, failed_logins)
 
-        mock_user_class = MagicMock()
-        first_return_val = mock_user_class.query.filter.return_value.first
-        first_return_val.return_value = self.FakeUser(user_id, password_hash)
-        db_access.User = mock_user_class
+    get_user(user_id, password_hash)
 
-        db_access.get_user(user_id, password_hash)
+    mock_user_class.query.filter.assert_called_once_with(
+        mock_user_class.User.user_id == user_id,
+        mock_user_class.User.password_hash == password_hash
+    )
 
-        mock_user_class.query.filter.assert_called_once_with(
-            mock_user_class.User.user_id == user_id,
-            mock_user_class.User.password_hash == password_hash
-        )
+    first_return_val = mock_user_class.query.filter.return_value.first
+    first_return_val.assert_called_once_with()
 
-        first_return_val = mock_user_class.query.filter.return_value.first
-        first_return_val.assert_called_once_with()
 
-    def test_get_user_returns_result_from_sqlalchemy(self):
-        db_access = DBAccess(MagicMock())
-        mock_user_class = MagicMock()
+@mock.patch('service.db_access.User')
+def test_get_user_returns_result_from_sqlalchemy(mock_user_class):
+    user_id = 'userid123'
+    password_hash = 'passwordhash123'
+    failed_logins = 0
 
-        user_id = 'userid123'
-        password_hash = 'passwordhash123'
+    first_return_value = mock_user_class.query.filter.return_value.first
+    first_return_value.return_value = FakeUser(user_id, password_hash, failed_logins)
 
-        first_return_value = mock_user_class.query.filter.return_value.first
-        first_return_value.return_value = self.FakeUser(user_id, password_hash)
+    result = get_user(user_id, password_hash)
 
-        db_access.User = mock_user_class
+    assert result.user_id == user_id
+    assert result.password_hash == password_hash
 
-        result = db_access.get_user(user_id, password_hash)
 
-        assert result.user_id == user_id
-        assert result.password_hash == password_hash
+@mock.patch('service.db.session.add')
+@mock.patch('service.db.session.commit')
+def test_create_user_uses_sqlalchemy_for_db_insert(mock_session_commit,
+                                                   mock_session_add):
+    user_id = 'userid123'
+    password_hash = 'passwordhash123'
+    fake_user = FakeUser(user_id, password_hash, 0)
 
-    def test_create_user_uses_sqlalchemy_for_db_insert(self):
-        class FakeUserModel():
-            def __init__(self, user_id, password_hash):
-                self.user_id = user_id
-                self.password_hash = password_hash
+    with mock.patch('service.db_access.User', return_value=fake_user):
+        result = create_user(user_id, password_hash)
 
-            def __eq__(self, other):
-                return (
-                    self.user_id == other.user_id and
-                    self.password_hash == other.password_hash
-                )
+    assert result
 
-        mock_sqlalchemy = MagicMock()
-        mock_sqlalchemy.Model = FakeUserModel
-        db_access = DBAccess(mock_sqlalchemy)
+    mock_session_add.assert_called_once_with(FakeUser(user_id, password_hash, 0))
+    mock_session_commit.assert_called_once_with()
 
-        user_id = 'userid123'
-        password_hash = 'passwordhash123'
 
-        result = db_access.create_user(user_id, password_hash)
+@mock.patch('service.db.session.commit')
+@mock.patch('service.db_access.User.query.filter')
+@mock.patch('service.db_access.User')
+def test_update_user_uses_sqlalchemy_for_db_update(mock_user_class, mock_filter,
+                                                   mock_session_commit):
+    user_id = 'userid123'
+    password_hash = 'passwordhash123'
 
-        assert result
-        mock_sqlalchemy.session.add.assert_called_once_with(
-            FakeUserModel(user_id, password_hash)
-        )
-        mock_sqlalchemy.session.commit.assert_called_once_with()
+    update_user(user_id, password_hash)
 
-    def test_update_user_uses_sqlalchemy_for_db_update(self):
-        mock_sqlalchemy = MagicMock()
-        db_access = DBAccess(mock_sqlalchemy)
+    mock_filter.assert_called_once_with(
+        mock_user_class.User.user_id == user_id
+    )
+    mock_return_update = mock_filter.return_value.update
+    mock_return_update.assert_called_once_with(
+        values={'password_hash': password_hash}
+    )
+    mock_session_commit.assert_called_once_with()
 
-        user_id = 'userid123'
-        password_hash = 'passwordhash123'
 
-        mock_user_class = MagicMock()
-        mock_user_class.query.filter.return_value.update.return_value = 1
-        db_access.User = mock_user_class
+@mock.patch('service.db_access.User')
+def test_update_user_returns_sqlalchemy_update_result(mock_user_class):
+    expected_result = 123
 
-        db_access.update_user(user_id, password_hash)
+    mock_return_val = mock_user_class.query.filter.return_value
+    mock_return_val.update.return_value = expected_result
 
-        mock_user_class.query.filter.assert_called_once_with(
-            mock_user_class.User.user_id == user_id
-        )
-        mock_return_update = mock_user_class.query.filter.return_value.update
-        mock_return_update.assert_called_once_with(
-            values={'password_hash': password_hash}
-        )
-        mock_sqlalchemy.session.commit.assert_called_once_with()
+    result = update_user('userid123', 'passwordhash123')
 
-    def test_update_user_returns_sqlalchemy_update_result(self):
-        db_access = DBAccess(MagicMock())
-        expected_result = 123
+    assert result == expected_result
 
-        mock_user_class = MagicMock()
-        mock_return_val = mock_user_class.query.filter.return_value
-        mock_return_val.update.return_value = expected_result
-        db_access.User = mock_user_class
 
-        result = db_access.update_user('userid123', 'passwordhash123')
+@mock.patch('service.db.session.commit')
+@mock.patch('service.db_access.User.query.filter')
+@mock.patch('service.db_access.User')
+def test_delete_user_uses_sqlalchemy_for_db_delete(mock_user_class, mock_filter,
+                                                   mock_session_commit):
+    user_id = 'userid123'
 
-        assert result == expected_result
+    delete_user(user_id)
 
-    def test_delete_user_uses_sqlalchemy_for_db_delete(self):
-        mock_sqlalchemy = MagicMock()
-        db_access = DBAccess(mock_sqlalchemy)
+    mock_filter.assert_called_once_with(
+        mock_user_class.User.user_id == user_id
+    )
+    mock_filter_return_val = mock_user_class.query.filter.return_value
+    mock_filter_return_val.delete.assert_called_once_with()
+    mock_session_commit.assert_called_once_with()
 
-        user_id = 'userid123'
 
-        mock_user_class = MagicMock()
-        mock_user_class.query.filter.return_value.update.return_value = 1
-        db_access.User = mock_user_class
+@mock.patch('service.db_access.User')
+def test_delete_user_returns_sqlalchemy_deletion_result(mock_user_class):
+    expected_return = 123
 
-        db_access.delete_user(user_id)
+    mock_class_return_value = mock_user_class.query.filter.return_value
+    mock_class_return_value.delete.return_value = expected_return
 
-        mock_user_class.query.filter.assert_called_once_with(
-            mock_user_class.User.user_id == user_id
-        )
-        mock_filter_return_val = mock_user_class.query.filter.return_value
-        mock_filter_return_val.delete.assert_called_once_with()
-        mock_sqlalchemy.session.commit.assert_called_once_with()
+    result = delete_user('userid123')
+    assert result == expected_return
 
-    def test_delete_user_returns_sqlalchemy_deletion_result(self):
-        db_access = DBAccess(MagicMock())
-        expected_return = 123
 
-        mock_user_class = MagicMock()
-        mock_class_return_value = mock_user_class.query.filter.return_value
-        mock_class_return_value.delete.return_value = expected_return
-        db_access.User = mock_user_class
+@mock.patch('service.db_access.User')
+def test_get_failed_logins_returns_result_for_existing_user(mock_user_class):
+    user_id = 'userid123'
+    password_hash = 'passwordhash123'
+    failed_logins = 1
 
-        result = db_access.delete_user('userid123')
-        assert result == expected_return
+    first_return_val = mock_user_class.query.filter.return_value
+    first_return_val.first.return_value = FakeUser(
+        user_id,
+        password_hash,
+        failed_logins
+    )
+
+    result = get_failed_logins(user_id)
+
+    assert result == failed_logins
+
+
+@mock.patch('service.db_access.User')
+def test_get_failed_logins_returns_result_for_non_existant_user(mock_user_class):
+    user_id = 'userid123'
+
+    first_return_val = mock_user_class.query.filter.return_value
+    first_return_val.first.return_value = None
+
+    result = get_failed_logins(user_id)
+
+    assert result is None
+
+
+@mock.patch('service.db_access.User')
+def test_update_failed_logins_returns_result_for_existing_user(mock_user_class):
+    user_id = 'userid123'
+    expected_result = 1
+
+    first_return_val = mock_user_class.query.filter.return_value
+    first_return_val.update.return_value = 1
+
+    num_of_rows = update_failed_logins(user_id, 0)
+
+    assert num_of_rows == expected_result
+
+
+@mock.patch('service.db.session.commit')
+@mock.patch('service.db_access.User.query.filter')
+@mock.patch('service.db_access.User')
+def test_update_failed_logins_uses_sqlalchemy_for_db_update(mock_user_class, mock_filter,
+                                                            mock_session_commit):
+    user_id = 'userid123'
+    failed_logins = 0
+
+    update_failed_logins(user_id, failed_logins)
+
+    mock_filter.assert_called_once_with(
+        mock_user_class.User.user_id == user_id
+    )
+    mock_return_update = mock_filter.return_value.update
+    mock_return_update.assert_called_once_with(
+        values={'failed_logins': failed_logins}
+    )
+    mock_session_commit.assert_called_once_with()
+
+
+@mock.patch('service.db_access.User')
+def test_update_failed_logins_returns_sqlalchemy_update_result(mock_user_class):
+    user_id = 'userid123'
+    failed_logins = 0
+
+    first_return_val = mock_user_class.query.filter.return_value
+    first_return_val.update.return_value = 1
+
+    result = update_failed_logins(user_id, failed_logins)
+
+    assert result == 1
