@@ -2,10 +2,6 @@
 
 Login API to authorize users. It is written in Python, with the Flask framework.  
 
-### Login API build status
-
-TODO
-
 ## Setup
 
 To create a virtual env, run the following from a shell:
@@ -27,13 +23,24 @@ To run the tests for the Login API, go to its folder and run `lr-run-tests`.
 
 ## Run the API
 
-Before you run the API, you need to have a PostgreSQL database running  on your development VM (see `db/lr-start-db`
-script in the [centos-dev-env](https://github.com/LandRegistry/centos-dev-env) project).
+Before you run the API, you need to have a PostgreSQL database running  on your development VM
+(see `lr-rebuild-all-db-tables` command in the [centos-dev-env](https://github.com/LandRegistry/centos-dev-env) project).
 
-Once you've got it running, execute the following command:
+### Run in dev mode
+
+To run the server in dev mode, execute the following command:
 
     source environment.sh
     python3 run_flask_dev.py
+
+### Run using gunicorn
+
+To run the server using gunicorn, activate your virtual environment, add the application directory to python path
+(e.g. `export PYTHONPATH=/vagrant/apps/login-api/:$PYTHONPATH`) and execute the following commands:
+
+    pip install gunicorn
+    gunicorn -p /tmp/gunicorn-login-api.pid service.server:app -c gunicorn_settings.py
+
 
 ## Using the endpoints
 
@@ -113,7 +120,9 @@ User not found response (HTTP status: 404):
 
 ## Jenkins builds
 
-TODO
+We use two separate builds:
+- [branch](http://52.16.47.1/job/login-api-unit-test%20(Branch)/)
+- [master](http://52.16.47.1/job/login-api-unit-test%20(Master)/)
 
 ## Database migrations
 
