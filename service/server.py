@@ -223,6 +223,3 @@ def _authenticated_response_body(user):
 def run_app():
     port = int(app.config.get('PORT', 8005))
     app.run(host='0.0.0.0', port=port)
-
-if __name__ == '__main__':
-    run_app()
