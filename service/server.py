@@ -44,9 +44,14 @@ def handleServerError(error):
     )
 
 
-@app.route('/', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def healthcheck():
-    return "OK"
+    try:
+        _hit_database_with_sample_query()
+        return _get_healthcheck_response('ok', 200, None)
+    except Exception as e:
+        error_message = 'Problem talking to PostgreSQL: {0}'.format(str(e))
+        return _get_healthcheck_response('error', 500, error_message)
 
 
 @app.route('/user/authenticate', methods=['POST'])
@@ -218,6 +223,23 @@ def _is_update_request_data_valid(request_data):
 
 def _authenticated_response_body(user):
     return json.dumps({"user": {"user_id": user.user_id}})
+
+
+def _hit_database_with_sample_query():
+    # hitting the database just to see if it responds properly
+    db_access.get_user('non-existing-user', 'password-hash')
+
+
+def _get_healthcheck_response(status, http_status_code, error_message):
+    response_body = {'status': status}
+    if error_message:
+        response_body['errors'] = [error_message]
+
+    return Response(
+        json.dumps(response_body),
+        status=http_status_code,
+        mimetype=JSON_CONTENT_TYPE,
+    )
 
 
 def run_app():
