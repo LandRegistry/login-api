@@ -4,7 +4,7 @@ import json
 import logging
 import logging.config
 from flask import request, Response
-from service import app, db_access, security
+from service import app, auditing, db_access, security
 
 
 AUTH_FAILURE_RESPONSE_BODY = json.dumps({'error': 'Invalid credentials'})
@@ -86,9 +86,9 @@ def authenticate_user():
                     mimetype=JSON_CONTENT_TYPE
                 )
 
-        log_msg = ('Too many bad logins' if skip_authorise
+        log_msg = ('Too many bad logins' if skip_authorise and failed_login_attempts is not None
                    else 'Invalid credentials used')
-        LOGGER.info('{}. username: {}, attempt: {}.'.format(
+        auditing.audit('{}. username: {}, attempt: {}.'.format(
             log_msg,
             user_id,
             failed_login_attempts
@@ -121,17 +121,11 @@ def create_user():
             app.config['PASSWORD_SALT']
         )
         if db_access.create_user(user_id, password_hash):
-            LOGGER.info('Created user {}'.format(user_id))
-            return Response(
-                json.dumps({'created': True}),
-                mimetype=JSON_CONTENT_TYPE
-            )
+            auditing.audit('Created user {}'.format(user_id))
+            return Response(json.dumps({'created': True}), mimetype=JSON_CONTENT_TYPE)
         else:
-            return Response(
-                json.dumps({'error': 'User already exists'}),
-                409,
-                mimetype=JSON_CONTENT_TYPE
-            )
+            response_body = json.dumps({'error': 'User already exists'})
+            return Response(response_body, 409, mimetype=JSON_CONTENT_TYPE)
     else:
         return INVALID_REQUEST_RESPONSE
 
@@ -150,7 +144,7 @@ def update_user(user_id):
             user_id=user_id,
             password_hash=new_password_hash
         ):
-            LOGGER.info('Updated user {}'.format(user_id))
+            auditing.audit('Updated user {}'.format(user_id))
             return Response(
                 json.dumps({'updated': True}),
                 mimetype=JSON_CONTENT_TYPE
@@ -164,7 +158,7 @@ def update_user(user_id):
 @app.route('/admin/user/<user_id>', methods=['DELETE'])
 def delete_user(user_id):
     if db_access.delete_user(user_id):
-        LOGGER.info('Deleted user {}'.format(user_id))
+        auditing.audit('Deleted user {}'.format(user_id))
         return Response(
             json.dumps({'deleted': True}),
             mimetype=JSON_CONTENT_TYPE
@@ -176,7 +170,7 @@ def delete_user(user_id):
 @app.route('/admin/user/<user_id>/unlock-account')
 def unlock_account(user_id):
     if db_access.update_failed_logins(user_id, 0):
-        LOGGER.info('Reset failed login attempts for user {}'.format(user_id))
+        auditing.audit('Reset failed login attempts for user {}'.format(user_id))
         return Response(json.dumps({'reset': True}),
                         mimetype=JSON_CONTENT_TYPE)
     else:
