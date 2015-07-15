@@ -45,7 +45,7 @@ class TestServer:
         assert mock_audit.mock_calls == []
 
     @mock.patch('service.auditing.audit')
-    def test_authenticate_user_returns_401_when_credentials_not_in_db(self, mock_audit):
+    def test_authenticate_user_audits_when_credentials_not_in_db(self, mock_audit):
         user_id = 'userid'
         body = json.dumps({
             "credentials": {"user_id": user_id, "password": "somepassword"}
@@ -60,7 +60,26 @@ class TestServer:
         self.app.post(AUTHENTICATE_ROUTE, data=body, headers=JSON_CONTENT_TYPE_HEADER)
 
         mock_audit.assert_called_once_with(
-            'Invalid credentials used. username: {}, attempt: None.'.format(user_id)
+            'Invalid credentials used. username: {}. User does not exist.'.format(user_id)
+        )
+
+    @mock.patch('service.auditing.audit')
+    def test_authenticate_user_audits_when_wrong_password_provided(self, mock_audit):
+        user_id = 'userid'
+        body = json.dumps({
+            "credentials": {"user_id": user_id, "password": "somepassword"}
+        })
+
+        mock_db_access = MagicMock()
+        mock_db_access.get_user = lambda self, *args, **kwargs: None
+        mock_db_access.get_failed_logins = lambda self, *args, **kwargs: 0
+        mock_db_access.update_failed_logins = lambda self, *args, **kwargs: 1
+        server.db_access = mock_db_access
+
+        self.app.post(AUTHENTICATE_ROUTE, data=body, headers=JSON_CONTENT_TYPE_HEADER)
+
+        mock_audit.assert_called_once_with(
+            'Invalid credentials used. username: {}, attempt: 1.'.format(user_id)
         )
 
     @mock.patch('service.auditing.audit')
@@ -79,7 +98,7 @@ class TestServer:
         self.app.post(AUTHENTICATE_ROUTE, data=body, headers=JSON_CONTENT_TYPE_HEADER)
 
         mock_audit.assert_called_once_with(
-            'Too many bad logins. username: {}, attempt: 20.'.format(user_id)
+            'Too many bad logins. username: {}, attempt: 21.'.format(user_id)
         )
 
     @mock.patch('service.auditing.audit')

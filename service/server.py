@@ -62,47 +62,18 @@ def authenticate_user():
         credentials = request_json['credentials']
         user_id = credentials['user_id']
         password = credentials['password']
-        password_hash = security.get_user_password_hash(
-            user_id,
-            password,
-            app.config['PASSWORD_SALT']
-        )
 
         # Find how many failed logins the users has since last successful login
         failed_login_attempts = db_access.get_failed_logins(user_id)
 
-        # If they have less attempts than the limit try to authorise
-        skip_authorise = (
-            failed_login_attempts is None or
-            failed_login_attempts >= MAX_LOGIN_ATTEMPTS
-        )
-        if not skip_authorise:
-            user = db_access.get_user(user_id, password_hash)
-            if user:
-                # Reset failed login attempts to zero and proceed
-                db_access.update_failed_logins(user_id, 0)
-                return Response(
-                    _authenticated_response_body(user),
-                    mimetype=JSON_CONTENT_TYPE
-                )
-
-        log_msg = ('Too many bad logins' if skip_authorise and failed_login_attempts is not None
-                   else 'Invalid credentials used')
-        auditing.audit('{}. username: {}, attempt: {}.'.format(
-            log_msg,
-            user_id,
-            failed_login_attempts
-        ))
-        # If user was found failed_login_attempts will be an int, else None
-        if failed_login_attempts is not None:
-            # Increment the number of failed login attempts
-            failed_login_attempts += 1
-            db_access.update_failed_logins(user_id, failed_login_attempts)
-        return Response(
-            AUTH_FAILURE_RESPONSE_BODY,
-            status=401,
-            mimetype=JSON_CONTENT_TYPE
-        )
+        if failed_login_attempts is None:
+            return _handle_non_existing_user_auth_request(user_id)
+        elif failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
+            return _handle_locked_user_auth_request(user_id, failed_login_attempts)
+        else:
+            return _handle_allowed_user_auth_request(
+                user_id, password, failed_login_attempts
+            )
     else:
         return INVALID_REQUEST_RESPONSE
 
@@ -186,6 +157,41 @@ def get_failed_logins(user_id):
         return Response(resp_json, mimetype=JSON_CONTENT_TYPE)
     else:
         return USER_NOT_FOUND_RESPONSE
+
+
+def _handle_non_existing_user_auth_request(user_id):
+    auditing.audit('Invalid credentials used. username: {}. User does not exist.'.format(user_id))
+    return Response(AUTH_FAILURE_RESPONSE_BODY, status=401, mimetype=JSON_CONTENT_TYPE)
+
+
+def _handle_locked_user_auth_request(user_id, failed_login_attempts):
+    failed_login_attempts += 1
+
+    auditing.audit('Too many bad logins. username: {}, attempt: {}.'.format(
+        user_id, failed_login_attempts
+    ))
+
+    db_access.update_failed_logins(user_id, failed_login_attempts)
+    return Response(AUTH_FAILURE_RESPONSE_BODY, status=401, mimetype=JSON_CONTENT_TYPE)
+
+
+def _handle_allowed_user_auth_request(user_id, password, failed_login_attempts):
+    password_salt = app.config['PASSWORD_SALT']
+    password_hash = security.get_user_password_hash(user_id, password, password_salt)
+    user = db_access.get_user(user_id, password_hash)
+
+    if user:
+        # Reset failed login attempts to zero and proceed
+        db_access.update_failed_logins(user_id, 0)
+        return Response(_authenticated_response_body(user), mimetype=JSON_CONTENT_TYPE)
+    else:
+        failed_login_attempts += 1
+        db_access.update_failed_logins(user_id, failed_login_attempts)
+        auditing.audit('Invalid credentials used. username: {}, attempt: {}.'.format(
+            user_id, failed_login_attempts
+        ))
+
+        return Response(AUTH_FAILURE_RESPONSE_BODY, status=401, mimetype=JSON_CONTENT_TYPE)
 
 
 def _try_get_request_json(request):
