@@ -6,12 +6,24 @@
       "format": "%(asctime)s level=[%(levelname)s] logger=[%(name)s] thread=[%(threadName)s] message=[%(message)s] exception=[%(exc_info)s]"
     }
   },
+  "filters": {
+    "exclude_auditing": {
+      "()": "service.auditing.ExcludeAuditingFilter"
+    }
+  },
   "handlers": {
-    "file": {
+    "log_file": {
       "class": "logging.handlers.RotatingFileHandler",
       "formatter": "default",
       "maxBytes": 1000000,
-      "filename": "/var/log/applications/login-api.log"
+      "filename": "/var/log/applications/login-api.log",
+      "filters": ["exclude_auditing"]
+    },
+    "audit_file": {
+      "class": "logging.FileHandler",
+      "mode": "a",
+      "formatter": "default",
+      "filename": "/var/log/applications/login-api-audit.log"
     },
     "console": {
       "class": "logging.StreamHandler",
@@ -21,12 +33,18 @@
   },
   "loggers": {
     "service": {
+    },
+    "service.auditing": {
+      "level": "INFO",
+      "handlers": [
+        "audit_file"
+      ]
     }
   },
   "root": {
     "level": "INFO",
     "handlers": [
-      "file",
+      "log_file",
       "console"
     ]
   }
