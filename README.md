@@ -19,7 +19,15 @@ manually), type:
 
 ## Run the tests
 
-To run the tests for the Login API, go to its folder and run `lr-run-tests`.
+### Run unit tests
+
+To run unit tests for the Login API, go to its folder and run `lr-run-unit-tests`.
+
+### Run integration tests
+
+In order to run Login API integration tests, go to its folder and run `./run_integration_tests.sh`.
+This script creates the test database (test_user_data) and runs the tests against it.
+Make sure you have postgresql service running (by executing the following command: `sudo service postgresql start`).
 
 ## Run the API
 
