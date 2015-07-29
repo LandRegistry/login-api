@@ -44,6 +44,8 @@ def handleServerError(error):
     )
 
 
+# TODO: remove the root route when the monitoring tools can work without it
+@app.route('/', methods=['GET'])
 @app.route('/health', methods=['GET'])
 def healthcheck():
     try:
