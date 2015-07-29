@@ -1,5 +1,6 @@
 from collections import namedtuple
-from mock import MagicMock, call
+import json
+from mock import MagicMock, call, patch
 
 from service import server
 from service.security import get_user_password_hash
@@ -12,6 +13,7 @@ UPDATE_USER_ROUTE_FORMAT = '/admin/user/{}/update'
 DELETE_USER_ROUTE_FORMAT = '/admin/user/{}'
 UNLOCK_ACCOUNT_ROUTE_FORMAT = 'admin/user/{}/unlock-account'
 GET_FAILED_LOGINS_ROUTE_FORMAT = 'admin/user/{}/get-failed-logins'
+HEALTH_ROUTE = '/health'
 
 JSON_CONTENT_TYPE_HEADER = {"Content-type": "application/json"}
 
@@ -670,3 +672,20 @@ class TestServer:
 
         assert response.status_code == 200
         assert response.data.decode() == UNLOCK_ACCOUNT_RESPONSE_BODY
+
+    @patch('service.server.db_access.get_user', return_value=None)
+    def test_health_returns_200_response_when_db_responds_properly(self, mock_get_user):
+        response = self.app.get(HEALTH_ROUTE)
+        assert response.status_code == 200
+        assert response.data.decode() == '{"status": "ok"}'
+
+    @patch('service.server.db_access.get_user', side_effect=Exception('Test exception'))
+    def test_health_returns_500_response_when_db_access_fails(self, mock_get_user):
+        response = self.app.get(HEALTH_ROUTE)
+
+        assert response.status_code == 500
+        json_response = json.loads(response.data.decode())
+        assert json_response == {
+            'status': 'error',
+            'errors': ['Problem talking to PostgreSQL: Test exception'],
+        }
