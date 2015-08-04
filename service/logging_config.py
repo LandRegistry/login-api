@@ -1,4 +1,4 @@
-import logging.config as logging_config  # type: ignore
+from logging.config import dictConfig  # type: ignore
 import json
 
 from config import CONFIG_DICT
@@ -14,7 +14,7 @@ def setup_logging():
             logging_config_file_path = CONFIG_DICT['LOGGING_CONFIG_FILE_PATH']
             with open(logging_config_file_path, 'rt') as file:
                 config = json.load(file)
-            logging_config.dictConfig(config)
+            dictConfig(config)
             done_setup = True
         except IOError as e:
             raise(Exception('Failed to load logging configuration', e))
