@@ -1,11 +1,11 @@
-from sqlalchemy.exc import ProgrammingError, InvalidRequestError, SQLAlchemyError
+from sqlalchemy.exc import ProgrammingError, SQLAlchemyError  # type: ignore
 
 from service import db
 
 SQL_STATE_DUPLICATE_KEY = '23505'
 
 
-class User(db.Model):
+class User(db.Model):  # type: ignore
     __tablename__ = 'users'
 
     user_id = db.Column(db.String(100), primary_key=True)
@@ -22,7 +22,7 @@ def get_user(user_id, password_hash):
 
 def create_user(user_id, password_hash):
     try:
-        user = User(user_id=user_id, password_hash=password_hash, failed_logins=0)
+        user = User(user_id=user_id, password_hash=password_hash, failed_logins=0)  # type: ignore
         db.session.add(user)
         db.session.commit()
         return True
