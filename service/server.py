@@ -1,9 +1,8 @@
-# !/usr/bin/env python
-import os
+from flask import request, Response  # type: ignore
 import json
 import logging
-import logging.config
-from flask import request, Response
+import logging.config                # type: ignore
+
 from service import app, auditing, db_access, security
 
 

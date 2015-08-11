@@ -1,4 +1,5 @@
 import os
+from typing import Dict, Union
 
 logging_config_file_path = os.environ['LOGGING_CONFIG_FILE_PATH']
 fault_log_file_path = os.environ['FAULT_LOG_FILE_PATH']
@@ -14,7 +15,7 @@ CONFIG_DICT = {
     'SQLALCHEMY_DATABASE_URI': sqlalchemy_database_uri,
     'PASSWORD_SALT': password_salt,
     'PORT': port,
-}
+}  # type: Dict[str, Union[bool, str]]
 
 settings = os.environ.get('SETTINGS')
 
