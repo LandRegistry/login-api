@@ -1,6 +1,6 @@
 import atexit
 import logging
-from service.server import run_app
+from service.server import app
 
 LOGGER = logging.getLogger(__name__)
 
@@ -10,4 +10,5 @@ def handle_shutdown(*args, **kwargs):
     LOGGER.info('Stopped the server')
 
 LOGGER.info('Starting the server')
-run_app()
+port = int(app.config.get('PORT', 8005))
+app.run(host='0.0.0.0', port=port)

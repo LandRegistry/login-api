@@ -1,7 +1,7 @@
 from flask import request, Response  # type: ignore
 import json
 import logging
-import logging.config                # type: ignore
+import logging.config  # type: ignore
 
 from service import app, auditing, db_access, security
 
@@ -241,8 +241,3 @@ def _get_healthcheck_response(status, http_status_code, error_message):
         status=http_status_code,
         mimetype=JSON_CONTENT_TYPE,
     )
-
-
-def run_app():
-    port = int(app.config.get('PORT', 8005))
-    app.run(host='0.0.0.0', port=port)
